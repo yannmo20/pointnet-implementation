@@ -19,14 +19,14 @@ sys.path.append(os.path.join(ROOT_DIR, 'models'))
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 import provider
 import tf_util
-import modelnet_dataset
+import radar_dataset
 import modelnet_h5_dataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--model', default='pointnet2_cls_ssg', help='Model name [default: pointnet2_cls_ssg]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
-parser.add_argument('--num_point', type=int, default=1024, help='Point Number [default: 1024]')
+parser.add_argument('--num_point', type=int, default=200, help='Point Number [default: 1024]')
 parser.add_argument('--max_epoch', type=int, default=251, help='Epoch to run [default: 251]')
 parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 16]')              # changing batch size, default was 16
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
@@ -50,6 +50,7 @@ DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
 
 MODEL = importlib.import_module(FLAGS.model) # import network module
+print('Using ' + FLAGS.model + ' as network model.')
 MODEL_FILE = os.path.join(ROOT_DIR, 'models', FLAGS.model+'.py')
 LOG_DIR = FLAGS.log_dir
 if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
@@ -65,15 +66,15 @@ BN_DECAY_CLIP = 0.99
 
 HOSTNAME = socket.gethostname()
 
-NUM_CLASSES = 40
+NUM_CLASSES = 10 # TODO must be changed?
 
 # Shapenet official train/test split
 if FLAGS.normal:
     assert(NUM_POINT<=10000)
     print('10000')
-    DATA_PATH = os.path.join(ROOT_DIR, 'data/modelnet40_normal_resampled')
-    TRAIN_DATASET = modelnet_dataset.ModelNetDataset(root=DATA_PATH, npoints=NUM_POINT, split='train', normal_channel=FLAGS.normal, batch_size=BATCH_SIZE)
-    TEST_DATASET = modelnet_dataset.ModelNetDataset(root=DATA_PATH, npoints=NUM_POINT, split='test', normal_channel=FLAGS.normal, batch_size=BATCH_SIZE)
+    DATA_PATH = '/media/moellya/yannick/data/data_zcomponent/far_data/'  # os.path.join(ROOT_DIR, 'data/data_zcomponent/far_data')
+    TRAIN_DATASET = radar_dataset.RadarDataset(root=DATA_PATH, npoints=NUM_POINT, split='train', batch_size=BATCH_SIZE)
+    TEST_DATASET = radar_dataset.RadarDataset(root=DATA_PATH, npoints=NUM_POINT, split='test', batch_size=BATCH_SIZE)
 else:
     assert(NUM_POINT<=2048)
     print('2048')
