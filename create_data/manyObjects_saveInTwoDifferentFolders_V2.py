@@ -11,6 +11,9 @@ ANGLE_RES_FAR_DEG = 1
 ANGLE_RES_NEAR_RAD = ANGLE_RES_NEAR_DEG * np.pi / 180.0
 ANGLE_RES_FAR_RAD = ANGLE_RES_FAR_DEG * np.pi / 180.0
 
+LABEL_MAPPING = {
+    'person_sitting': 'pedestrian',
+}
 
 def r_phi_array_unscaled(near=False):
     """
@@ -99,46 +102,44 @@ def get_label_cornerpixels(label_object):
     ymax = label_object['minrow'] + ymin  # y bottom
 
     y = 0.5 * (ymax - ymin)  # mid-height if label
-    identity = label_object['identity']
+    identity = LABEL_MAPPING.get(label_object['identity'], label_object['identity'])
 
     return xmin, xmax, y, identity
 
 
 def create_subarray(array, bound_left, bound_right):
-    return array[:, :, bound_left:bound_right + 1]
+    return array[:, 3:, bound_left:bound_right + 1] # cut off first three elements due to noise
 
 
 def preprocess_output(output):
-    if output.shape[0] < 1500:
-        # TODO upsample
-        pass
+    new_output = output # just for overwriting
+    while new_output.shape[0] < 1500:
+        new_output = np.concatenate((new_output, output)) # thrid variable is axis used for concatenation
 
-    # TODO downsample based on amplitude in output[:, 3]
-    # Algo: sort by amplitude
-    # select first 1500
-    output = output[:1500, :]
-    return output
+    # downsampling by sorting the first amplitude value, select first 1500
+    new_output = new_output[new_output[:,3].argsort()][::-1]
+    new_output = new_output[:1500, :]
+    return new_output
 
 
-def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, saveinDirectory):
+def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, saveinDirectory, scenarionr):
     # note that all arrays have same width and length
-    output = get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out=True) # TODO: wieder auf False
-    #output = preprocess_output(output)
+    output = get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out=False) # TODO: wieder auf False
+    output = preprocess_output(output)
 
     OBJ_CNTS[identity] = 1 + OBJ_CNTS.get(identity, 0)
 
     out_path = os.path.join('/media/moellya/yannick/data/data_zcomponent', saveinDirectory + identity,
-                            '{}_'.format(identity) + '{0:04}.txt'.format(OBJ_CNTS[identity]))
+                            '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
+                            '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
 
-    # pseudo code start
-   # points = []
-  #  for point in output:  # Achtung geht so evtl nicht bei np arrays
- #       points.append(', '.join([str(e) for e in point]) + '\n')
-    # pseudo code end
+    points = []
+    for point in output:  # Achtung geht so evtl nicht bei np arrays
+        points.append(', '.join([str(e) for e in point]) + '\n')
 
     with open(out_path, 'w') as f:
-        #f.writelines(points)
-        f.writelines(output)
+        f.writelines(points)
+        #f.writelines(output)
 
 
 def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out=True):
@@ -146,8 +147,12 @@ def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out
 
     for k in range(r_phiArray_subarray.shape[1]):
         for j in range(r_phiArray_subarray.shape[2]):
-            # TODO r_phi -> x, y
+            # change ro x, y representation
+            r_phiArray_subarray[0, j] = polar2cartesian(r_phiArray_subarray[0, j], r_phiArray_subarray[1, j])[0]
+            r_phiArray_subarray[1, j] = polar2cartesian(r_phiArray_subarray[0, j], r_phiArray_subarray[1, j])[1]
+
             point = [*r_phiArray_subarray[:, k, j], 0.0, *amp_subarray[:, k, j], *dop_subarray[:, k, j]]
+
             if str_out:
                 output.append(', '.join([str(e) for e in point]) + '\n')
             else:
@@ -205,11 +210,11 @@ def cartesian2polar(x, y):
     return r, phi
 
 
-def polar2cartesian(phi):
-    return np.cos(phi), np.sin(phi)
+def polar2cartesian(r, phi):
+    return r*np.cos(phi), r*np.sin(phi)
 
 
-def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity):
+def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, counter):
     r_phiArray = R_PHI_ARRAY_FAR  # create array for range r and angle phi
     phileft_radar += 0.5 * ANGLE_RES_FAR_RAD
     phiright_radar -= 0.5 * ANGLE_RES_FAR_RAD
@@ -226,10 +231,10 @@ def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity):
     r_phiArray = np.moveaxis(r_phiArray, [2], [0])
     r_phiArray_subarray = create_subarray(r_phiArray, bound_left, bound_right)
 
-    write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'far_data/')
+    write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'far_data/', counter)
 
 
-def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity):
+def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, counter):
     r_phiArray = R_PHI_ARRAY_NEAR  # create array for range r and angle phi
     phileft_radar += 0.5 * 3.75 * ANGLE_RES_NEAR_RAD
     phiright_radar -= 0.5 * 3.75 * ANGLE_RES_NEAR_RAD
@@ -246,7 +251,7 @@ def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity):
     r_phiArray = np.moveaxis(r_phiArray, [2], [0])
     r_phiArray_subarray = create_subarray(r_phiArray, bound_left, bound_right)
 
-    #write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'near_data/')
+    write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'near_data/', counter)
 
 
 def check_for_enough_resolution(phileft_radar, phiright_radar, near=True):
@@ -258,15 +263,15 @@ def check_for_enough_resolution(phileft_radar, phiright_radar, near=True):
     return distance > ang_res
 
 
-def create_no_objects(no_obj_list, radar_data, near=True):
+def create_no_objects(no_obj_list, radar_data, counter, near=True):
     for phiright_radar, phileft_radar in no_obj_list:
         enough_resolotion = check_for_enough_resolution(phileft_radar, phiright_radar, near)
 
         if enough_resolotion:
             if near:
-                look_in_near_radar(phileft_radar, phiright_radar, radar_data, 'no_obj')
+                look_in_near_radar(phileft_radar, phiright_radar, radar_data, 'no_obj', counter)
             else:
-                look_in_far_radar(phileft_radar, phiright_radar, radar_data, 'no_obj')
+                look_in_far_radar(phileft_radar, phiright_radar, radar_data, 'no_obj', counter)
 
 
 def main():
@@ -303,13 +308,13 @@ def main():
             # far radar system
             if (phiright_radar <= far_boundary and phiright_radar >= -far_boundary) or (
                     phileft_radar <= far_boundary and phileft_radar >= -far_boundary):
-                look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity)
+                look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, counter)
                 obj_list_far.append([phiright_radar, phileft_radar])
 
             # near radar system
             if (phiright_radar <= near_boundary and phiright_radar >= -near_boundary) or (
                     phileft_radar <= near_boundary and phileft_radar >= -near_boundary):
-                look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity)
+                look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, counter)
                 obj_list_near.append([phiright_radar, phileft_radar])
 
         # get obj_lists disjoint -> sort it first, then use disjoint-function
@@ -322,8 +327,8 @@ def main():
                                                       [8.5 * (-1) * ANGLE_RES_NEAR_RAD, 8.5 * ANGLE_RES_NEAR_RAD])
         # zero = invert_interval_bounderies([], [8.5*(-1)*angle_res_near_rad, 8.5*angle_res_near_rad]) # test case
 
-        create_no_objects(no_obj_list_far, radar_data, False)
-        create_no_objects(no_obj_list_near, radar_data)
+        create_no_objects(no_obj_list_far, radar_data, counter, False)
+        create_no_objects(no_obj_list_near, radar_data, counter)
 
     print(OBJ_CNTS)
 
