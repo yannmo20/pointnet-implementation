@@ -27,7 +27,7 @@ parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU
 parser.add_argument('--model', default='pointnet2_cls_ssg', help='Model name [default: pointnet2_cls_ssg]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--num_point', type=int, default=200, help='Point Number [default: 1024]')
-parser.add_argument('--max_epoch', type=int, default=251, help='Epoch to run [default: 251]')
+parser.add_argument('--max_epoch', type=int, default=10, help='Epoch to run [default: 251]')
 parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 16]')              # changing batch size, default was 16
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
@@ -66,13 +66,13 @@ BN_DECAY_CLIP = 0.99
 
 HOSTNAME = socket.gethostname()
 
-NUM_CLASSES = 10 # TODO must be changed?
+NUM_CLASSES = 2 # TODO must be changed?
 
 # Shapenet official train/test split
 if FLAGS.normal:
     assert(NUM_POINT<=10000)
     print('10000')
-    DATA_PATH = '/media/moellya/yannick/data/data_zcomponent/far_data/'  # os.path.join(ROOT_DIR, 'data/data_zcomponent/far_data')
+    DATA_PATH = '/media/moellya/yannick/data/data_vru_notvru/far_data/'  # os.path.join(ROOT_DIR, 'data/data_zcomponent/far_data')
     TRAIN_DATASET = radar_dataset.RadarDataset(root=DATA_PATH, npoints=NUM_POINT, split='train', batch_size=BATCH_SIZE)
     TEST_DATASET = radar_dataset.RadarDataset(root=DATA_PATH, npoints=NUM_POINT, split='test', batch_size=BATCH_SIZE)
 else:
@@ -111,12 +111,12 @@ def train():
         with tf.device('/gpu:'+str(GPU_INDEX)):
             pointclouds_pl, labels_pl = MODEL.placeholder_inputs(BATCH_SIZE, NUM_POINT)
             is_training_pl = tf.placeholder(tf.bool, shape=())
-            
+
             # Note the global_step=batch parameter to minimize. 
             # That tells the optimizer to helpfully increment the 'batch' parameter
             # for you every time it trains.
             batch = tf.get_variable('batch', [],
-                initializer=tf.constant_initializer(0), trainable=False)
+                                    initializer=tf.constant_initializer(0), trainable=False)
             bn_decay = get_bn_decay(batch)
             tf.summary.scalar('bn_decay', bn_decay)
 
@@ -142,10 +142,10 @@ def train():
             elif OPTIMIZER == 'adam':
                 optimizer = tf.train.AdamOptimizer(learning_rate)
             train_op = optimizer.minimize(total_loss, global_step=batch)
-            
+
             # Add ops to save and restore all the variables.
             saver = tf.train.Saver()
-        
+
         # Create a session
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
@@ -173,10 +173,12 @@ def train():
                'end_points': end_points}
 
         best_acc = -1
+        eval_one_epoch(sess, ops, test_writer)
+
         for epoch in range(MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
-             
+
             train_one_epoch(sess, ops, train_writer)
             eval_one_epoch(sess, ops, test_writer)
 
