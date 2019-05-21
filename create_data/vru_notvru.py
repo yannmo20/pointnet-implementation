@@ -65,7 +65,7 @@ print()
 
 
 def get_all_radarfiles_from_directory():
-    return os.listdir('/media/moellya/yannick/raw_data/')
+    return sorted(os.listdir('/media/moellya/yannick/raw_data/'))
 
 
 def get_radar_path(current_filename):
@@ -111,7 +111,7 @@ def get_label_cornerpixels(label_object):
 
 
 def create_subarray(array, bound_left, bound_right):
-    return array[:, 3:, bound_left:bound_right + 1]  # cut off first three elements due to noise
+    return np.copy(array[:, 3:, bound_left:bound_right + 1])  # cut off first three elements due to noise
 
 
 def preprocess_output(output):
@@ -154,8 +154,15 @@ def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out
             # change ro x, y representation
             r_phiArray_subarray[:, k, j] = polar2cartesian(r_phiArray_subarray[0, k, j], r_phiArray_subarray[1, k, j])
 
+            #if r_phiArray_subarray[0, k, j] < 0:
+            #    print("negativ")
+
+            #  zcomponent is dopplervelocity
             point = [*r_phiArray_subarray[:, k, j], dop_subarray[0, k, j], *amp_subarray[:, k, j],
                      *dop_subarray[:, k, j]]
+
+            #point = [*r_phiArray_subarray[:, k, j], 0.0, *amp_subarray[:, k, j],  #  zcomponent is zero
+            #        *dop_subarray[:, k, j]]
 
             if str_out:
                 output.append(', '.join([str(e) for e in point]) + '\n')
@@ -191,21 +198,22 @@ def merge_overlapping_intervals(list):
 
 
 def invert_interval_bounderies(obj_list, base_interval):
-    previous_right_border = base_interval[0]
-    inverted_interval = []
-
-    obj_list.append([base_interval[1], base_interval[1]])
-
     if not obj_list:
-        return base_interval
+        return [base_interval]
 
-    for obj in obj_list:
-        new_border_right = obj[0]
-        new_border_left = previous_right_border
-        previous_right_border = obj[1]
-        inverted_interval.append([new_border_left, new_border_right])
+    else:
+        previous_right_border = base_interval[0]
+        inverted_interval = []
 
-    return inverted_interval
+        obj_list.append([base_interval[1], base_interval[1]])
+
+        for obj in obj_list:
+            new_border_right = obj[0]
+            new_border_left = previous_right_border
+            previous_right_border = obj[1]
+            inverted_interval.append([new_border_left, new_border_right])
+
+        return inverted_interval
 
 
 def cartesian2polar(x, y):
@@ -215,6 +223,9 @@ def cartesian2polar(x, y):
 
 
 def polar2cartesian(r, phi):
+    x = r*np.cos(phi)
+    if x<0:
+        print('negatic')
     return r * np.cos(phi), r * np.sin(phi)
 
 
