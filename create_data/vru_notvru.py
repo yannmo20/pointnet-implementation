@@ -2,6 +2,7 @@ import json
 import os
 import numpy as np
 from transform_code.transformations import Transformer
+from boundaries_test import get_boundaries_for_angle
 
 # set up global variable for counting detected radar objects per class
 OBJ_CNTS = {}
@@ -12,6 +13,8 @@ ANGLE_RES_NEAR_DEG = 3.75
 ANGLE_RES_FAR_DEG = 1
 ANGLE_RES_NEAR_RAD = ANGLE_RES_NEAR_DEG * np.pi / 180.0
 ANGLE_RES_FAR_RAD = ANGLE_RES_FAR_DEG * np.pi / 180.0
+
+BORDER_ARRAY_FAR = []
 
 LABEL_MAPPING = {
     identity: 'vru' for identity in VRU
@@ -79,21 +82,68 @@ def get_label_path(current_filename):
     return label_path
 
 
-def get_bounderies_for_angle(r_phiArray, phileft_radar, phiright_radar):
-    bound_left = 0  # init for error handling
-    for k in range(r_phiArray.shape[1]):
-        if phileft_radar >= r_phiArray[0][k][1]:
-            if k == 0:
-                bound_left = 0
-            else:
-                bound_left = k - 1
-            break
+def create_boundery_list(angle_res):
+    boundery_list = list()
 
-    for k in range(r_phiArray.shape[1]):
-        if k == r_phiArray.shape[1] - 1: bound_right = k
-        if phiright_radar >= r_phiArray[0][k][1]:
-            bound_right = k - 1
-            break
+    for boundery in np.arange(8.5, -8.5, -1):
+        boundery_list.append(angle_res*boundery*np.pi/180.)
+    return boundery_list
+
+
+def create_boundary_list(angle_res):
+    boundary_list = list()
+
+    for boundary in np.arange(8.5, -8.5, -1):
+        boundary_list.append([angle_res*boundary*np.pi/180., angle_res*(boundary-1.)*np.pi/180.])
+    return boundary_list
+
+
+def get_boundaries_for_angle(phileft_radar, phiright_radar, angle_res):
+    bound_left = 0
+    bound_right = 0
+    res_factor = 0.3  # minimum 30% overlap
+    res_threshold = angle_res * res_factor * 1. * np.pi / 180.
+
+    boundary_list = create_boundary_list(angle_res)
+
+    if phileft_radar > boundary_list[0][0]:
+        pass  # bound_left remains zero
+
+    elif phileft_radar < boundary_list[-1][0]:
+        bound_left = len(boundary_list)-1
+
+    else:
+        for k, interval in enumerate(boundary_list):
+            new_angle1 = interval[0] - res_threshold
+            new_angle2 = interval[1] + res_threshold
+            #if interval[0] >= phileft_radar - res_threshold > interval[1] or interval[0] >= phileft_radar + res_threshold > interval[1]:
+            if new_angle1 >= phileft_radar > new_angle2:
+                bound_left = k
+                break
+            elif phileft_radar > interval[1]:  # on top
+                if k != len(boundary_list)-1:
+                    bound_left = k+1
+                else:
+                    bound_left = k
+                break
+
+    if phiright_radar <= boundary_list[-1][0]:
+        bound_right = len(boundary_list)-1
+
+    elif phiright_radar > boundary_list[0][0]:
+        pass  # bound_right remains zero
+
+    else:
+        for k, interval in enumerate(boundary_list):
+            new_angle1 = interval[0] - res_threshold
+            new_angle2 = interval[1] + res_threshold
+            #if interval[0] >= phiright_radar + res_threshold > interval[1] or interval[0] >= phiright_radar - res_threshold > interval[1]:
+            if new_angle1 >= phiright_radar > new_angle2:
+                bound_right = k
+                break
+            elif phiright_radar > interval[1]:  # on top
+                bound_right = k
+                break
 
     return bound_left, bound_right
 
@@ -128,14 +178,16 @@ def preprocess_output(output):
 def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, saveinDirectory, scenarionr):
     # note that all arrays have same width and length
     output = get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray,
-                                 str_out=False)  # TODO: wieder auf False
-    output = preprocess_output(output)
+                                 str_out=False)
+    output = preprocess_output(output)  # TODO -> für Malen rausmachen!
 
     OBJ_CNTS[identity] = 1 + OBJ_CNTS.get(identity, 0)
 
-    out_path = os.path.join('/media/moellya/yannick/data/data_vru_notvru', saveinDirectory + identity,
-                            '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
-                            '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
+    #out_path = os.path.join('/media/moellya/yannick/data/data_vru_notvru_ziszero', saveinDirectory + identity,
+    #                        '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
+    #                        '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
+
+    #out_path = '/lhome/moellya/Desktop/test.txt'
 
     points = []
     for point in output:  # Achtung geht so evtl nicht bei np arrays
@@ -158,11 +210,11 @@ def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out
             #    print("negativ")
 
             #  zcomponent is dopplervelocity
-            point = [*r_phiArray_subarray[:, k, j], dop_subarray[0, k, j], *amp_subarray[:, k, j],
-                     *dop_subarray[:, k, j]]
+            #point = [*r_phiArray_subarray[:, k, j], dop_subarray[0, k, j], *amp_subarray[:, k, j],
+            #         *dop_subarray[:, k, j]]
 
-            #point = [*r_phiArray_subarray[:, k, j], 0.0, *amp_subarray[:, k, j],  #  zcomponent is zero
-            #        *dop_subarray[:, k, j]]
+            point = [*r_phiArray_subarray[:, k, j], 0.0, *amp_subarray[:, k, j],  #  zcomponent is zero
+                     *dop_subarray[:, k, j]]
 
             if str_out:
                 output.append(', '.join([str(e) for e in point]) + '\n')
@@ -232,42 +284,46 @@ def polar2cartesian(r, phi):
 def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, counter):
     r_phiArray = R_PHI_ARRAY_FAR  # create array for range r and angle phi
     phileft_radar += 0.5 * ANGLE_RES_FAR_RAD
-    phiright_radar -= 0.5 * ANGLE_RES_FAR_RAD
-    bound_left, bound_right = get_bounderies_for_angle(r_phiArray, phileft_radar, phiright_radar)
+    phiright_radar += 0.5 * ANGLE_RES_FAR_RAD
+    bound_left, bound_right = get_boundaries_for_angle(phileft_radar, phiright_radar, ANGLE_RES_FAR_DEG)
 
-    # if bound_right != 0:
-    amp = np.array(radar_data['peak_list_far']['amplitude'])
-    amp_subarray = create_subarray(amp, bound_left, bound_right)
+    if bound_left <= bound_right:
+        amp = np.array(radar_data['peak_list_far']['amplitude'])
+        amp_subarray = create_subarray(amp, bound_left, bound_right)
 
-    dop = np.array(radar_data['peak_list_far']['ego_motion_compensated_doppler'])
-    dop_subarray = create_subarray(dop, bound_left, bound_right)
+        dop = np.array(radar_data['peak_list_far']['ego_motion_compensated_doppler'])
+        dop_subarray = create_subarray(dop, bound_left, bound_right)
 
-    # create subarray for r and phi and swap axis so that dimensions are congruent to other subarrays (except third one)
-    r_phiArray = np.moveaxis(r_phiArray, [2], [0])
-    r_phiArray_subarray = create_subarray(r_phiArray, bound_left, bound_right)
+        # create subarray for r and phi and swap axis so that dimensions are congruent to other subarrays (except third one)
+        r_phiArray = np.moveaxis(r_phiArray, [2], [0])
+        r_phiArray_subarray = create_subarray(r_phiArray, bound_left, bound_right)
 
-    write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'far_data/', counter)
-
+        write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'far_data/', counter)
+    else:
+        counter -= 1
 
 def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, counter):
     r_phiArray = R_PHI_ARRAY_NEAR  # create array for range r and angle phi
-    phileft_radar += 0.5 * 3.75 * ANGLE_RES_NEAR_RAD
-    phiright_radar -= 0.5 * 3.75 * ANGLE_RES_NEAR_RAD
-    bound_left, bound_right = get_bounderies_for_angle(r_phiArray, phileft_radar, phiright_radar)
+    phileft_radar += 0.5 * ANGLE_RES_NEAR_RAD
+    phiright_radar += 0.5 * ANGLE_RES_NEAR_RAD
+    bound_left, bound_right = get_boundaries_for_angle(phileft_radar, phiright_radar, ANGLE_RES_NEAR_DEG)
 
-    # if bound_right != 0:
-    amp = np.array(radar_data['peak_list_near']['amplitude'])
-    amp_subarray = create_subarray(amp, bound_left, bound_right)
+    if bound_left <= bound_right:
+        amp = np.array(radar_data['peak_list_near']['amplitude'])
+        amp_subarray = create_subarray(amp, bound_left, bound_right)
+        amp_subarray = np.copy(amp_subarray[:, :-10, :])
 
-    dop = np.array(radar_data['peak_list_near']['ego_motion_compensated_doppler'])
-    dop_subarray = create_subarray(dop, bound_left, bound_right)
+        dop = np.array(radar_data['peak_list_near']['ego_motion_compensated_doppler'])
+        dop_subarray = create_subarray(dop, bound_left, bound_right)
+        dop_subarray = np.copy(dop_subarray[:, :-10, :])
 
-    # create subarray for r and phi and swap axis so that dimensions are congruent to other subarrays (except third one)
-    r_phiArray = np.moveaxis(r_phiArray, [2], [0])
-    r_phiArray_subarray = create_subarray(r_phiArray, bound_left, bound_right)
+        # create subarray for r and phi and swap axis so that dimensions are congruent to other subarrays (except third one)
+        r_phiArray = np.moveaxis(r_phiArray, [2], [0])
+        r_phiArray_subarray = create_subarray(r_phiArray, bound_left, bound_right)
 
-    write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'near_data/', counter)
-
+        write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'near_data/', counter)
+    else:
+        counter -= 1
 
 def check_for_enough_resolution(phileft_radar, phiright_radar, near=True):
     ang_res = ANGLE_RES_NEAR_RAD if near else ANGLE_RES_FAR_RAD
@@ -299,6 +355,9 @@ def main():
     for counter, current_filename in enumerate(filenames_radar_files, start=1):
         if counter % 10 == 0:
             print('Already ' + str(counter) + ' files used.')
+
+        #if counter == 200:  # for breakpoint
+        #    print('Hallo')
 
         radar_path = get_radar_path(current_filename)
         with open(radar_path, 'r') as f:
