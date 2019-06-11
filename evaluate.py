@@ -19,19 +19,24 @@ sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 #import provider
 import radar_dataset
 import modelnet_h5_dataset
+from sklearn.metrics import confusion_matrix
+from itertools import chain
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
-parser.add_argument('--model', default='pointnet2_cls_ssg', help='Model name. [default: pointnet2_cls_ssg]')
+parser.add_argument('--model', default='pointnet2_cls_radar', help='Model name. [default: pointnet2_cls_ssg]')
+parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 16]')
 parser.add_argument('--num_point', type=int, default=1024, help='Point Number [256/512/1024/2048] [default: 1024]')
-parser.add_argument('--model_path', default='log/model.ckpt', help='model checkpoint file path [default: log/model.ckpt]')
+parser.add_argument('--model_path', default='/media/moellya/yannick/training_sessions/ziszero_exactboundary_RANDnoObjCone_FAR/model.ckpt', help='model checkpoint file path [default: log/model.ckpt]')
 parser.add_argument('--dump_dir', default='dump', help='dump folder path [dump]')
 parser.add_argument('--normal', action='store_true', help='Whether to use normal information')
 parser.add_argument('--num_votes', type=int, default=1, help='Aggregate classification scores from multiple rotations [default: 1]')
 FLAGS = parser.parse_args()
 
+FAILURE_MODES_TEXTPATH = 'eval_failure_modes.txt'
 
+LOG_DIR = FLAGS.log_dir
 BATCH_SIZE = FLAGS.batch_size
 NUM_POINT = FLAGS.num_point
 MODEL_PATH = FLAGS.model_path
@@ -44,7 +49,7 @@ LOG_FOUT.write(str(FLAGS)+'\n')
 
 NUM_CLASSES = 2
 SHAPE_NAMES = [line.rstrip() for line in \
-    open('/media/moellya/yannick/data/data_vru_notvru/far_data/shape_names.txt')]
+    open('/media/moellya/yannick/data/data_vru_notvru_ziszero_RANDnoObjCone/far_data/shape_names.txt')]
 
 HOSTNAME = socket.gethostname()
 
@@ -52,13 +57,22 @@ HOSTNAME = socket.gethostname()
 if FLAGS.normal:
     assert(NUM_POINT<=10000)
     print('10000')
-    DATA_PATH = '/media/moellya/yannick/data/data_vru_notvru/far_data/'  # os.path.join(ROOT_DIR, 'data/data_zcomponent/far_data')
-    TRAIN_DATASET = radar_dataset.RadarDataset.ModelNetDataset(root=DATA_PATH, npoints=NUM_POINT, split='train', normal_channel=FLAGS.normal, batch_size=BATCH_SIZE)
-    TEST_DATASET = radar_dataset.RadarDataset.ModelNetDataset(root=DATA_PATH, npoints=NUM_POINT, split='test', normal_channel=FLAGS.normal, batch_size=BATCH_SIZE)
+    DATA_PATH = '/media/moellya/yannick/data/data_vru_notvru_ziszero_RANDnoObjCone/far_data/'  # os.path.join(ROOT_DIR, 'data/data_zcomponent/far_data')
+    TRAIN_DATASET = radar_dataset.RadarDataset(root=DATA_PATH, npoints=NUM_POINT, split='train', batch_size=BATCH_SIZE)
+    TEST_DATASET = radar_dataset.RadarDataset(root=DATA_PATH, npoints=NUM_POINT, split='test', batch_size=BATCH_SIZE)
 else:
     assert(NUM_POINT<=2048)
     TRAIN_DATASET = modelnet_h5_dataset.ModelNetH5Dataset(os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/train_files.txt'), batch_size=BATCH_SIZE, npoints=NUM_POINT, shuffle=True)
     TEST_DATASET = modelnet_h5_dataset.ModelNetH5Dataset(os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'), batch_size=BATCH_SIZE, npoints=NUM_POINT, shuffle=False)
+
+
+def flatten(input):
+    new_list = []
+    for i in input:
+        for j in i:
+            new_list.append(j)
+    return new_list
+
 
 def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
@@ -98,6 +112,10 @@ def evaluate(num_votes):
            'pred': pred,
            'loss': total_loss}
 
+    # clear file
+    LOG_failure_modes = open(os.path.join(LOG_DIR, FAILURE_MODES_TEXTPATH), 'w')
+    LOG_failure_modes.write('')
+
     eval_one_epoch(sess, ops, num_votes)
 
 def eval_one_epoch(sess, ops, num_votes=1, topk=1):
@@ -106,6 +124,10 @@ def eval_one_epoch(sess, ops, num_votes=1, topk=1):
     # Make sure batch data is of same size
     cur_batch_data = np.zeros((BATCH_SIZE,NUM_POINT,TEST_DATASET.num_channel()))
     cur_batch_label = np.zeros((BATCH_SIZE), dtype=np.int32)
+
+    vector_true = []
+    vector_pred = []
+    summary_failure = []
 
     total_correct = 0
     total_seen = 0
@@ -116,7 +138,7 @@ def eval_one_epoch(sess, ops, num_votes=1, topk=1):
     total_correct_class = [0 for _ in range(NUM_CLASSES)]
 
     while TEST_DATASET.has_next_batch():
-        batch_data, batch_label = TEST_DATASET.next_batch(augment=False)
+        batch_data, batch_label, filelist = TEST_DATASET.next_batch(augment=False)
         bsize = batch_data.shape[0]
         print('Batch: %03d, batch size: %d'%(batch_idx, bsize))
         # for the last batch in the epoch, the bsize:end are from last batch
@@ -128,28 +150,36 @@ def eval_one_epoch(sess, ops, num_votes=1, topk=1):
             # Shuffle point order to achieve different farthest samplings
             shuffled_indices = np.arange(NUM_POINT)
             np.random.shuffle(shuffled_indices)
-            if FLAGS.normal:
-                rotated_data = provider.rotate_point_cloud_by_angle_with_normal(cur_batch_data[:, shuffled_indices, :],
-                    vote_idx/float(num_votes) * np.pi * 2)
-            else:
-                rotated_data = provider.rotate_point_cloud_by_angle(cur_batch_data[:, shuffled_indices, :],
-                    vote_idx/float(num_votes) * np.pi * 2)
-            feed_dict = {ops['pointclouds_pl']: rotated_data,
+            feed_dict = {ops['pointclouds_pl']: cur_batch_data,
                          ops['labels_pl']: cur_batch_label,
                          ops['is_training_pl']: is_training}
             loss_val, pred_val = sess.run([ops['loss'], ops['pred']], feed_dict=feed_dict)
             batch_pred_sum += pred_val
         pred_val = np.argmax(batch_pred_sum, 1)
         correct = np.sum(pred_val[0:bsize] == batch_label[0:bsize])
+
         total_correct += correct
         total_seen += bsize
         loss_sum += loss_val
         batch_idx += 1
         for i in range(bsize):
             l = batch_label[i]
+            current_file = filelist[i]
             total_seen_class[l] += 1
             total_correct_class[l] += (pred_val[i] == l)
-    
+
+            if pred_val[i] != l:
+                summary_failure.append(current_file)
+
+        vector_true.append(batch_label)
+        vector_pred.append(pred_val)
+
+    # print all failure examples:
+    LOG_failure_modes = open(os.path.join(LOG_DIR, FAILURE_MODES_TEXTPATH), 'a+')
+    for item in summary_failure:
+        LOG_failure_modes.write(str(item) + '\n')
+    LOG_failure_modes.close()
+
     log_string('eval mean loss: %f' % (loss_sum / float(batch_idx)))
     log_string('eval accuracy: %f'% (total_correct / float(total_seen)))
     log_string('eval avg class acc: %f' % (np.mean(np.array(total_correct_class)/np.array(total_seen_class,dtype=np.float))))
@@ -157,6 +187,14 @@ def eval_one_epoch(sess, ops, num_votes=1, topk=1):
     class_accuracies = np.array(total_correct_class)/np.array(total_seen_class,dtype=np.float)
     for i, name in enumerate(SHAPE_NAMES):
         log_string('%10s:\t%0.3f' % (name, class_accuracies[i]))
+
+    #confusion matrix
+    vector_true = flatten(vector_true)
+    vector_pred = flatten(vector_pred)
+
+    vector_pred = vector_pred[:len(vector_true)]
+    print(confusion_matrix(vector_true, vector_pred))
+
 
 
 if __name__=='__main__':

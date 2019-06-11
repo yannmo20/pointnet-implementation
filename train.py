@@ -24,7 +24,7 @@ import modelnet_h5_dataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
-parser.add_argument('--model', default='pointnet2_cls_ssg', help='Model name [default: pointnet2_cls_ssg]')
+parser.add_argument('--model', default='pointnet2_cls_radar', help='Model name [default: pointnet2_cls_ssg]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--num_point', type=int, default=200, help='Point Number [default: 1024]')
 parser.add_argument('--max_epoch', type=int, default=10, help='Epoch to run [default: 251]')
@@ -72,7 +72,7 @@ NUM_CLASSES = 2 # TODO must be changed?
 if FLAGS.normal:
     assert(NUM_POINT<=10000)
     print('10000')
-    DATA_PATH = '/media/moellya/yannick/data/data_vru_notvru/far_data/'  # os.path.join(ROOT_DIR, 'data/data_zcomponent/far_data')
+    DATA_PATH = '/media/moellya/yannick/data/data_vru_notvru_ziszero_RANDnoObjCone/far_data'  # os.path.join(ROOT_DIR, 'data/data_zcomponent/far_data')
     TRAIN_DATASET = radar_dataset.RadarDataset(root=DATA_PATH, npoints=NUM_POINT, split='train', batch_size=BATCH_SIZE)
     TEST_DATASET = radar_dataset.RadarDataset(root=DATA_PATH, npoints=NUM_POINT, split='test', batch_size=BATCH_SIZE)
 else:
@@ -173,7 +173,7 @@ def train():
                'end_points': end_points}
 
         best_acc = -1
-        eval_one_epoch(sess, ops, test_writer)
+        #eval_one_epoch(sess, ops, test_writer)
 
         for epoch in range(MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
@@ -183,7 +183,7 @@ def train():
             eval_one_epoch(sess, ops, test_writer)
 
             # Save the variables to disk.
-            if epoch % 10 == 0:
+            if epoch %10 == 0 or epoch == MAX_EPOCH-1:
                 save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"))
                 log_string("Model saved in file: %s" % save_path)
 
@@ -203,7 +203,7 @@ def train_one_epoch(sess, ops, train_writer):
     loss_sum = 0
     batch_idx = 0
     while TRAIN_DATASET.has_next_batch():
-        batch_data, batch_label = TRAIN_DATASET.next_batch(augment=True)
+        batch_data, batch_label, path = TRAIN_DATASET.next_batch(augment=True)
         #batch_data = provider.random_point_dropout(batch_data)
         bsize = batch_data.shape[0]
         cur_batch_data[0:bsize,...] = batch_data
@@ -250,9 +250,12 @@ def eval_one_epoch(sess, ops, test_writer):
     
     log_string(str(datetime.now()))
     log_string('---- EPOCH %03d EVALUATION ----'%(EPOCH_CNT))
+
+    if EPOCH_CNT ==1:
+        print()
     
     while TEST_DATASET.has_next_batch():
-        batch_data, batch_label = TEST_DATASET.next_batch(augment=False)
+        batch_data, batch_label, path = TEST_DATASET.next_batch(augment=False)
         bsize = batch_data.shape[0]
         # for the last batch in the epoch, the bsize:end are from last batch
         cur_batch_data[0:bsize,...] = batch_data
@@ -274,6 +277,7 @@ def eval_one_epoch(sess, ops, test_writer):
             l = batch_label[i]
             total_seen_class[l] += 1
             total_correct_class[l] += (pred_val[i] == l)
+
     
     log_string('eval mean loss: %f' % (loss_sum / float(batch_idx)))
     log_string('eval accuracy: %f'% (total_correct / float(total_seen)))
