@@ -101,7 +101,7 @@ def create_boundary_list(angle_res):
 def get_boundaries_for_angle(phileft_radar, phiright_radar, angle_res):
     bound_left = 0
     bound_right = 0
-    res_factor = 0.3  # minimum 30% overlap
+    res_factor = 0.0  # minimum 30% overlap
     res_threshold = angle_res * res_factor * 1. * np.pi / 180.
 
     boundary_list = create_boundary_list(angle_res)
@@ -145,7 +145,27 @@ def get_boundaries_for_angle(phileft_radar, phiright_radar, angle_res):
                 bound_right = k
                 break
 
+    if bound_right+1 == bound_left:
+        bound_left = bound_right
+
+    #bound_left, bound_right = 0, 16
+
     return bound_left, bound_right
+
+
+def get_random_boundaries():
+    # get boundary for noObj scenary -> number of beams between 1 and 4
+    nr_of_beams = np.random.random_integers(4)
+
+    while True:
+        start_nr_for_cone = np.random.random_integers(17)-1  # between 0 and 16
+        if start_nr_for_cone+nr_of_beams > 16:
+            continue
+        else:
+            break
+
+    #return 0, 16
+    return start_nr_for_cone, start_nr_for_cone+nr_of_beams
 
 
 def get_label_cornerpixels(label_object):
@@ -171,7 +191,7 @@ def preprocess_output(output):
 
     # downsampling by sorting the first amplitude value, select first 1500
     new_output = new_output[new_output[:, 3].argsort()][::-1]
-    new_output = new_output[:1500, :]
+    new_output = new_output[:1500, :]#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     return new_output
 
 
@@ -183,9 +203,9 @@ def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, ide
 
     OBJ_CNTS[identity] = 1 + OBJ_CNTS.get(identity, 0)
 
-    #out_path = os.path.join('/media/moellya/yannick/data/data_vru_notvru_ziszero', saveinDirectory + identity,
-    #                        '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
-    #                        '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
+    out_path = os.path.join('/media/moellya/yannick/data/data_vru_notvru_ziszero_RANDnoObjCone', saveinDirectory + identity,
+                            '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
+                            '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
 
     #out_path = '/lhome/moellya/Desktop/test.txt'
 
@@ -281,11 +301,15 @@ def polar2cartesian(r, phi):
     return r * np.cos(phi), r * np.sin(phi)
 
 
-def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, counter):
+def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, counter, noObj=False):
     r_phiArray = R_PHI_ARRAY_FAR  # create array for range r and angle phi
     phileft_radar += 0.5 * ANGLE_RES_FAR_RAD
     phiright_radar += 0.5 * ANGLE_RES_FAR_RAD
-    bound_left, bound_right = get_boundaries_for_angle(phileft_radar, phiright_radar, ANGLE_RES_FAR_DEG)
+
+    if not noObj:
+        bound_left, bound_right = get_boundaries_for_angle(phileft_radar, phiright_radar, ANGLE_RES_FAR_DEG)
+    else:
+        bound_left, bound_right = get_random_boundaries()
 
     if bound_left <= bound_right:
         amp = np.array(radar_data['peak_list_far']['amplitude'])
@@ -302,11 +326,16 @@ def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, count
     else:
         counter -= 1
 
-def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, counter):
+def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, counter, noObj=False):
     r_phiArray = R_PHI_ARRAY_NEAR  # create array for range r and angle phi
     phileft_radar += 0.5 * ANGLE_RES_NEAR_RAD
     phiright_radar += 0.5 * ANGLE_RES_NEAR_RAD
-    bound_left, bound_right = get_boundaries_for_angle(phileft_radar, phiright_radar, ANGLE_RES_NEAR_DEG)
+
+    if not noObj:
+        bound_left, bound_right = get_boundaries_for_angle(phileft_radar, phiright_radar, ANGLE_RES_NEAR_DEG)
+    else:
+        bound_left, bound_right = get_random_boundaries()
+
 
     if bound_left <= bound_right:
         amp = np.array(radar_data['peak_list_near']['amplitude'])
@@ -337,12 +366,13 @@ def check_for_enough_resolution(phileft_radar, phiright_radar, near=True):
 def create_no_objects(no_obj_list, radar_data, counter, near=True):
     for phiright_radar, phileft_radar in no_obj_list:
         enough_resolotion = check_for_enough_resolution(phileft_radar, phiright_radar, near)
+        noObj = True
 
         if enough_resolotion:
             if near:
-                look_in_near_radar(phileft_radar, phiright_radar, radar_data, 'not_vru', counter)
+                look_in_near_radar(phileft_radar, phiright_radar, radar_data, 'not_vru', counter, noObj)
             else:
-                look_in_far_radar(phileft_radar, phiright_radar, radar_data, 'not_vru', counter)
+                look_in_far_radar(phileft_radar, phiright_radar, radar_data, 'not_vru', counter, noObj)
 
 
 def main():

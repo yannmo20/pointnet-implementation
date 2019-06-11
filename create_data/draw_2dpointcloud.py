@@ -6,10 +6,11 @@ import numpy as np
 
 
 def create_data_array():
-    datapoints = get_radarfile('/lhome/moellya/Desktop/test.txt')  # TODO CHNGE!
-    #datapoints = get_radarfile('/media/moellya/yannick/data/data_vru_notvru_ziszero/far_data/not_vru/3162-not_vru_9380.txt')  # TODO CHNGE!
+    #datapoints = get_radarfile('/lhome/moellya/Desktop/test.txt')  # TODO CHNGE!
+    #datapoints = get_radarfile('/media/moellya/yannick/data/data_vru_notvru_ziszero_30thresh_RANDnoObjCone/far_data/vru/3719-vru_5323.txt')  # TODO CHNGE!
+    datapoints = get_radarfile('/media/moellya/yannick/data/data_vru_notvru_ziszero_RANDnoObjCone/far_data/not_vru/3428-not_vru_10355.txt')  # TODO CHNGE!
     check_for_multiple_drawing = set()
-    xy_amp = np.zeros([len(datapoints), 5])
+    xy_ampdop = np.zeros([len(datapoints), 8])
 
     for pointnr, point in enumerate(datapoints):
 
@@ -20,17 +21,21 @@ def create_data_array():
             check_for_multiple_drawing.add((point_objects[0], point_objects[1]))
 
             for k in range(2):
-                xy_amp[pointnr][k] = point_objects[k]
+                xy_ampdop[pointnr][k] = point_objects[k]
 
             # three amplitudes, +1 for full 16bit -> then to 8bit and -1 back -> go to RGB representation
             for k in range(3):
-                xy_amp[pointnr][2 + k] = float(point_objects[3 + k]) / (np.power(2, 16) - 1)
+                #xy_ampdop[pointnr][2 + k] = float(point_objects[3 + k]) / (np.power(2, 16) - 1)
+                xy_ampdop[pointnr][2 + k] = float(point_objects[3 + k])
+            # three doplers
+            for k in range(3):
+                xy_ampdop[pointnr][5 + k] = float(point_objects[6 + k])
 
         else:
             continue
 
-    xy_amp = xy_amp[~np.all(xy_amp == 0, axis=1)]
-    return xy_amp
+    xy_ampdop = xy_ampdop[~np.all(xy_ampdop == 0, axis=1)]
+    return xy_ampdop
 
 
 def get_radarfile(path):
@@ -45,8 +50,9 @@ def main():
 
     plt.rc('font', **font)
     plt.rc('axes', axisbelow=True)
-    xy_amp = create_data_array()
+    xy_ampdop = create_data_array()
     #plt.scatter(xyz[:, 1], xyz[:, 0])
+
 
     fpath = '/lhome/moellya/Downloads/ComputerModern/cmunrm.ttf'
     prop = fm.FontProperties(fname=fpath)
@@ -58,10 +64,10 @@ def main():
     plt.grid(color='whitesmoke')
 
     marker_size = 3
-    plt.scatter(xy_amp[:, 1] * (-1), xy_amp[:, 0], marker_size, c=xy_amp[:, 2])
+    plt.scatter(xy_ampdop[:, 1] * (-1), xy_ampdop[:, 0], marker_size, c=xy_ampdop[:, 2])
 
     cbar = plt.colorbar()
-    cbar.set_label("Amplitude [16bit number]".format(fname), fontproperties=prop, labelpad=+1)
+    cbar.set_label("Amp [16bit]".format(fname), fontproperties=prop, labelpad=+1)
 
     plt.show()
 

@@ -6,7 +6,7 @@ from transform_code.transformations import Transformer
 from vru_notvru import *
 from draw_2dpointcloud import create_data_array
 
-current_filename= 'radar_-_dense_fog:2018-02-12_16-02-49:cam_stereo:left:image_rect:00080_1518447779367089292.json'
+current_filename= 'radar_-_snow_subsampled:2018-02-12_12-05-18:cam_stereo:left:image_rect:00250_1518433545943946343.json'
 radar_path = ''
 counter = 0
 
