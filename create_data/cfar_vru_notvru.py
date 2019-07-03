@@ -4,9 +4,17 @@ import numpy as np
 from transform_code.transformations import Transformer
 from boundaries_test import get_boundaries_for_angle
 from scipy.ndimage.filters import rank_filter
+import h5py
 
 # set up global variable for counting detected radar objects per class
 OBJ_CNTS = {}
+
+H5FILE = False
+# hf = h5py.File('/lhome/moellya/Desktop/' + 'h5alldata.h5', 'w')
+# total_hf_array = []
+
+
+CFAR = True
 
 VRU = ['pedestrian', 'cyclist', 'person_sitting']
 
@@ -102,7 +110,7 @@ def create_boundary_list(angle_res):
 def get_boundaries_for_angle(phileft_radar, phiright_radar, angle_res):
     bound_left = 0
     bound_right = 0
-    res_factor = 0.0  # minimum 30% overlap
+    res_factor = 0.2  # minimum 30% overlap
     res_threshold = angle_res * res_factor * 1. * np.pi / 180.
 
     boundary_list = create_boundary_list(angle_res)
@@ -165,8 +173,8 @@ def get_random_boundaries():
         else:
             break
 
-    return 0, 16
-    #return start_nr_for_cone, start_nr_for_cone+nr_of_beams
+    #return 0, 16
+    return start_nr_for_cone, start_nr_for_cone+nr_of_beams
 
 
 def get_label_cornerpixels(label_object):
@@ -186,14 +194,15 @@ def create_subarray(array, bound_left, bound_right):
 
 
 def preprocess_output(output):
+    assert output.shape[0], 'Empty Object'
     new_output = output
     # just for overwriting
-    while new_output.shape[0] < 1500:
+    while new_output.shape[0] < 100:
         new_output = np.concatenate((new_output, output))  # thrid variable is axis used for concatenation
 
     # downsampling by sorting the first amplitude value, select first 1500
     new_output = new_output[new_output[:, 3].argsort()][::-1]
-    #new_output = new_output[:1500, :]#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    new_output = new_output[:100, :]#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     return new_output
 
 
@@ -205,19 +214,64 @@ def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, ide
 
     OBJ_CNTS[identity] = 1 + OBJ_CNTS.get(identity, 0)
 
-    out_path = os.path.join('/media/moellya/yannick/data/data_vru_notvru_exact_ziszero', saveinDirectory + identity,
-                           '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
-                           '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
+    if H5FILE:
+        if identity == 'vru':
+            label = 1
+        elif identity == 'not_vru':
+            label = 0
+        else:
+            assert identity, 'Object class not defined!'
 
-    #out_path = '/lhome/moellya/Desktop/test.txt'
+        #total_hf_array = np.concatenate(total_hf_array, output.append(label))
+        assert H5FILE, 'NICHT IMPLEMENTIERT!'
 
-    points = []
-    for point in output:  # Achtung geht so evtl nicht bei np arrays
-        points.append(', '.join([str(e) for e in point]) + '\n')
+    else:
+        #out_path = os.path.join('/media/moellya/yannick/data/CFAR_65_09_zisdoppler_20overlap_RANDnoObjCone', saveinDirectory + identity,
+        #                        '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
+        #                        '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
 
-    with open(out_path, 'w') as f:
-        f.writelines(points)
-        # f.writelines(output)
+        out_path = '/lhome/moellya/Desktop/test.txt'
+
+        points = []
+        for point in output:  # Achtung geht so evtl nicht bei np arrays
+            points.append(', '.join([str(e) for e in point]) + '\n')
+
+        with open(out_path, 'w') as f:
+            f.writelines(points)
+            # f.writelines(output)
+
+
+def do_cfar(amp, quantile=0.65):
+    # threshold = 1.3 * rank_filter(amp, rank=int(np.ceil(1 * 32 * quantile)), size=(32, 1))
+    # 200 x 17
+    footprint = [
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [1, 1, 1],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+    ]
+
+    filter_length = 10
+
+    for k in range(3):
+        threshold = 0.9*rank_filter(amp[k, ...], rank=int(np.ceil(1*filter_length*quantile)), size=(filter_length, 1))
+        # threshold = 1.3*rank_filter(amp[k, ...], rank=int(np.count_nonzero(footprint)*quantile), footprint=footprint)
+        # threshold = rank_filter(peaks, rank=-1, size=(3, 5))
+        amp[k, ...] = amp[k, ...] * (amp[k, ...] > threshold)
+    return amp
 
 
 def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out=True):
@@ -225,23 +279,27 @@ def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out
 
     for k in range(r_phiArray_subarray.shape[1]):
         for j in range(r_phiArray_subarray.shape[2]):
-            # change ro x, y representation
-            r_phiArray_subarray[:, k, j] = polar2cartesian(r_phiArray_subarray[0, k, j], r_phiArray_subarray[1, k, j])
+            for l in range(3):
+                if amp_subarray[l, k, j] == 0:
+                    continue
 
-            #if r_phiArray_subarray[0, k, j] < 0:
-            #    print("negativ")
+                # change ro x, y representation
+                r_phi = polar2cartesian(r_phiArray_subarray[0, k, j], r_phiArray_subarray[1, k, j])
 
-            #  zcomponent is dopplervelocity
-            #point = [*r_phiArray_subarray[:, k, j], dop_subarray[0, k, j], *amp_subarray[:, k, j],
-            #         *dop_subarray[:, k, j]]
+                #if r_phiArray_subarray[0, k, j] < 0:
+                #    print("negativ")
 
-            point = [*r_phiArray_subarray[:, k, j], 0.0, *amp_subarray[:, k, j],  #  zcomponent is zero
-                     *dop_subarray[:, k, j]]
+                #  zcomponent is dopplervelocity
+                point = [*r_phi, dop_subarray[l, k, j], amp_subarray[l, k, j],
+                         dop_subarray[l, k, j]]
 
-            if str_out:
-                output.append(', '.join([str(e) for e in point]) + '\n')
-            else:
-                output.append(point)
+                #point = [*r_phiArray_subarray[:, k, j], 0.0, amp_subarray[l, k, j],  #  zcomponent is zero
+                #         dop_subarray[l, k, j]]
+
+                if str_out:
+                    output.append(', '.join([str(e) for e in point]) + '\n')
+                else:
+                    output.append(point)
 
     if not str_out:
         output = np.array(output)
@@ -317,6 +375,9 @@ def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, count
         amp = np.array(radar_data['peak_list_far']['amplitude'])
         dop = np.array(radar_data['peak_list_far']['ego_motion_compensated_doppler'])
 
+        if CFAR:
+            amp = do_cfar(amp)
+
         amp_subarray = create_subarray(amp, bound_left, bound_right)
         dop_subarray = create_subarray(dop, bound_left, bound_right)
 
@@ -342,6 +403,9 @@ def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, coun
     if bound_left <= bound_right:
         amp = np.array(radar_data['peak_list_near']['amplitude'])
         dop = np.array(radar_data['peak_list_near']['ego_motion_compensated_doppler'])
+
+        if CFAR:
+            amp = do_cfar(amp)
 
         amp_subarray = create_subarray(amp, bound_left, bound_right)
         amp_subarray = np.copy(amp_subarray[:, :-10, :])
@@ -389,8 +453,8 @@ def main():
         if counter % 10 == 0:
             print('Already ' + str(counter) + ' files used.')
 
-        #if counter == 200:  # for breakpoint
-        #    print('Hallo')
+        #if counter >=199:
+        #    print('mist')
 
         radar_path = get_radar_path(current_filename)
         with open(radar_path, 'r') as f:
