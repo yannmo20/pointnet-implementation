@@ -1,7 +1,5 @@
 import json
-
 import numpy as np
-
 from transform_code.cameramodels import PinholeCameraModel
 
 
@@ -50,12 +48,10 @@ class Transformer:
 
 def main():
     trafo = Transformer()
-    # print(trafo.img_pixel_to_radar(512, 960))
+    print(trafo.radar_to_cam(0, 0, 0))
+    print(trafo.radar_to_cam(1000, 0, 0))
+    print(trafo.radar_to_cam(0, 1, 0))
 
 
 if __name__ == '__main__':
     main()
-    trafo = Transformer()
-    print(trafo.radar_to_cam(0, 0, 0))
-    print(trafo.radar_to_cam(1000, 0, 0))
-    print(trafo.radar_to_cam(0, 1, 0))
