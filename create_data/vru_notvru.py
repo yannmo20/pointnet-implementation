@@ -87,7 +87,7 @@ def create_boundery_list(angle_res):
     boundery_list = list()
 
     for boundery in np.arange(8.5, -8.5, -1):
-        boundery_list.append(angle_res*boundery*np.pi/180.)
+        boundery_list.append(angle_res * boundery * np.pi / 180.)
     return boundery_list
 
 
@@ -95,7 +95,7 @@ def create_boundary_list(angle_res):
     boundary_list = list()
 
     for boundary in np.arange(8.5, -8.5, -1):
-        boundary_list.append([angle_res*boundary*np.pi/180., angle_res*(boundary-1.)*np.pi/180.])
+        boundary_list.append([angle_res * boundary * np.pi / 180., angle_res * (boundary - 1.) * np.pi / 180.])
     return boundary_list
 
 
@@ -111,25 +111,25 @@ def get_boundaries_for_angle(phileft_radar, phiright_radar, angle_res):
         pass  # bound_left remains zero
 
     elif phileft_radar < boundary_list[-1][0]:
-        bound_left = len(boundary_list)-1
+        bound_left = len(boundary_list) - 1
 
     else:
         for k, interval in enumerate(boundary_list):
             new_angle1 = interval[0] - res_threshold
             new_angle2 = interval[1] + res_threshold
-            #if interval[0] >= phileft_radar - res_threshold > interval[1] or interval[0] >= phileft_radar + res_threshold > interval[1]:
+            # if interval[0] >= phileft_radar - res_threshold > interval[1] or interval[0] >= phileft_radar + res_threshold > interval[1]:
             if new_angle1 >= phileft_radar > new_angle2:
                 bound_left = k
                 break
             elif phileft_radar > interval[1]:  # on top
-                if k != len(boundary_list)-1:
-                    bound_left = k+1
+                if k != len(boundary_list) - 1:
+                    bound_left = k + 1
                 else:
                     bound_left = k
                 break
 
     if phiright_radar <= boundary_list[-1][0]:
-        bound_right = len(boundary_list)-1
+        bound_right = len(boundary_list) - 1
 
     elif phiright_radar > boundary_list[0][0]:
         pass  # bound_right remains zero
@@ -138,7 +138,7 @@ def get_boundaries_for_angle(phileft_radar, phiright_radar, angle_res):
         for k, interval in enumerate(boundary_list):
             new_angle1 = interval[0] - res_threshold
             new_angle2 = interval[1] + res_threshold
-            #if interval[0] >= phiright_radar + res_threshold > interval[1] or interval[0] >= phiright_radar - res_threshold > interval[1]:
+            # if interval[0] >= phiright_radar + res_threshold > interval[1] or interval[0] >= phiright_radar - res_threshold > interval[1]:
             if new_angle1 >= phiright_radar > new_angle2:
                 bound_right = k
                 break
@@ -146,10 +146,10 @@ def get_boundaries_for_angle(phileft_radar, phiright_radar, angle_res):
                 bound_right = k
                 break
 
-    if bound_right+1 == bound_left:
+    if bound_right + 1 == bound_left:
         bound_left = bound_right
 
-    #bound_left, bound_right = 0, 16
+    # bound_left, bound_right = 0, 16
 
     return bound_left, bound_right
 
@@ -159,14 +159,14 @@ def get_random_boundaries():
     nr_of_beams = np.random.random_integers(4)
 
     while True:
-        start_nr_for_cone = np.random.random_integers(17)-1  # between 0 and 16
-        if start_nr_for_cone+nr_of_beams > 16:
+        start_nr_for_cone = np.random.random_integers(17) - 1  # between 0 and 16
+        if start_nr_for_cone + nr_of_beams > 16:
             continue
         else:
             break
 
     return 0, 16
-    #return start_nr_for_cone, start_nr_for_cone+nr_of_beams
+    # return start_nr_for_cone, start_nr_for_cone+nr_of_beams
 
 
 def get_label_cornerpixels(label_object):
@@ -193,7 +193,7 @@ def preprocess_output(output):
 
     # downsampling by sorting the first amplitude value, select first 1500
     new_output = new_output[new_output[:, 3].argsort()][::-1]
-    #new_output = new_output[:1500, :]#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # new_output = new_output[:1500, :]
     return new_output
 
 
@@ -206,10 +206,8 @@ def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, ide
     OBJ_CNTS[identity] = 1 + OBJ_CNTS.get(identity, 0)
 
     out_path = os.path.join('/media/moellya/yannick/data/data_vru_notvru_exact_ziszero', saveinDirectory + identity,
-                           '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
-                           '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
-
-    #out_path = '/lhome/moellya/Desktop/test.txt'
+                            '{0:04}'.format(scenarionr) + '-' + '{}_'.format(identity) +
+                            '{0:04}'.format(OBJ_CNTS[identity]) + '.txt')
 
     points = []
     for point in output:  # Achtung geht so evtl nicht bei np arrays
@@ -217,7 +215,6 @@ def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, ide
 
     with open(out_path, 'w') as f:
         f.writelines(points)
-        # f.writelines(output)
 
 
 def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out=True):
@@ -228,14 +225,14 @@ def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out
             # change ro x, y representation
             r_phiArray_subarray[:, k, j] = polar2cartesian(r_phiArray_subarray[0, k, j], r_phiArray_subarray[1, k, j])
 
-            #if r_phiArray_subarray[0, k, j] < 0:
+            # if r_phiArray_subarray[0, k, j] < 0:
             #    print("negativ")
 
             #  zcomponent is dopplervelocity
-            #point = [*r_phiArray_subarray[:, k, j], dop_subarray[0, k, j], *amp_subarray[:, k, j],
+            # point = [*r_phiArray_subarray[:, k, j], dop_subarray[0, k, j], *amp_subarray[:, k, j],
             #         *dop_subarray[:, k, j]]
 
-            point = [*r_phiArray_subarray[:, k, j], 0.0, *amp_subarray[:, k, j],  #  zcomponent is zero
+            point = [*r_phiArray_subarray[:, k, j], 0.0, *amp_subarray[:, k, j],  # zcomponent is zero
                      *dop_subarray[:, k, j]]
 
             if str_out:
@@ -297,8 +294,8 @@ def cartesian2polar(x, y):
 
 
 def polar2cartesian(r, phi):
-    x = r*np.cos(phi)
-    if x<0:
+    x = r * np.cos(phi)
+    if x < 0:
         print('negatic')
     return r * np.cos(phi), r * np.sin(phi)
 
@@ -328,6 +325,7 @@ def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, count
     else:
         counter -= 1
 
+
 def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, counter, noObj=False):
     r_phiArray = R_PHI_ARRAY_NEAR  # create array for range r and angle phi
     phileft_radar += 0.5 * ANGLE_RES_NEAR_RAD
@@ -337,7 +335,6 @@ def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, coun
         bound_left, bound_right = get_boundaries_for_angle(phileft_radar, phiright_radar, ANGLE_RES_NEAR_DEG)
     else:
         bound_left, bound_right = get_random_boundaries()
-
 
     if bound_left <= bound_right:
         amp = np.array(radar_data['peak_list_near']['amplitude'])
@@ -356,6 +353,7 @@ def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity, coun
         write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, 'near_data/', counter)
     else:
         counter -= 1
+
 
 def check_for_enough_resolution(phileft_radar, phiright_radar, near=True):
     ang_res = ANGLE_RES_NEAR_RAD if near else ANGLE_RES_FAR_RAD
@@ -388,9 +386,6 @@ def main():
     for counter, current_filename in enumerate(filenames_radar_files, start=1):
         if counter % 10 == 0:
             print('Already ' + str(counter) + ' files used.')
-
-        #if counter == 200:  # for breakpoint
-        #    print('Hallo')
 
         radar_path = get_radar_path(current_filename)
         with open(radar_path, 'r') as f:

@@ -6,9 +6,8 @@ import numpy as np
 
 
 def create_data_array():
-    #datapoints = get_radarfile('/lhome/moellya/Desktop/test.txt')  # TODO CHNGE!
-    #datapoints = get_radarfile('/media/moellya/yannick/data/data_vru_notvru_ziszero_30thresh_RANDnoObjCone/far_data/vru/3719-vru_5323.txt')  # TODO CHNGE!
-    datapoints = get_radarfile('/media/moellya/yannick/data/data_vru_notvru_ziszero_RANDnoObjCone/far_data/not_vru/3428-not_vru_10355.txt')  # TODO CHNGE!
+    datapoints = get_radarfile(
+        '/media/moellya/yannick/data/data_vru_notvru_ziszero_RANDnoObjCone/far_data/not_vru/3428-not_vru_10355.txt')
     check_for_multiple_drawing = set()
     xy_ampdop = np.zeros([len(datapoints), 8])
 
@@ -25,7 +24,7 @@ def create_data_array():
 
             # three amplitudes, +1 for full 16bit -> then to 8bit and -1 back -> go to RGB representation
             for k in range(3):
-                #xy_ampdop[pointnr][2 + k] = float(point_objects[3 + k]) / (np.power(2, 16) - 1)
+                # xy_ampdop[pointnr][2 + k] = float(point_objects[3 + k]) / (np.power(2, 16) - 1)
                 xy_ampdop[pointnr][2 + k] = float(point_objects[3 + k])
             # three doplers
             for k in range(3):
@@ -51,8 +50,7 @@ def main():
     plt.rc('font', **font)
     plt.rc('axes', axisbelow=True)
     xy_ampdop = create_data_array()
-    #plt.scatter(xyz[:, 1], xyz[:, 0])
-
+    # plt.scatter(xyz[:, 1], xyz[:, 0])
 
     fpath = '/lhome/moellya/Downloads/ComputerModern/cmunrm.ttf'
     prop = fm.FontProperties(fname=fpath)

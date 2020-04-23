@@ -16,6 +16,7 @@ def write_into_train_file(output):
     with open(path + '/radar_train.txt', 'a+') as f:
         f.writelines(output + '\n')
 
+
 def write_into_test_file(output):
     with open(path + '/radar_test.txt', 'a+') as f:
         f.writelines(output + '\n')
@@ -60,7 +61,6 @@ def get_output(slicing_nr, identity, OBJ_CNTS, OBJ_TRAIN, OBJ_TEST, line):
         write_into_train_file(line[slicing_nr:])
 
 
-
 def main():
     # split into train (70%) and test(30%)
     train_part = 0.7
@@ -87,7 +87,7 @@ def main():
 
     f = open(path + '/filelist.txt', 'r')
     for line in f.readlines():
-        line = line[:len(line)-5]  # cut off '.txt'
+        line = line[:len(line) - 5]  # cut off '.txt'
 
         if line[0:4] == 'tram':
             identity = 'tram'

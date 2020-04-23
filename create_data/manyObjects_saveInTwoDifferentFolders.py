@@ -19,7 +19,7 @@ def r_phi_array_unscaled(near=False):
 
     r_phi = np.zeros((rg_cnt, az_cnt, 2))
 
-    angle_res = 3.75 if near else 1  §
+    angle_res = 3.75 if near else 1
 
     for r_idx in range(rg_cnt):
         for phi_idx in range(az_cnt):
@@ -48,6 +48,7 @@ def r_phi_array_unscaled(near=False):
             # y
     return r_phi
 
+
 R_PHI_ARRAY_FAR = r_phi_array_unscaled(near=False)
 R_PHI_ARRAY_NEAR = r_phi_array_unscaled(near=True)
 print()
@@ -69,7 +70,7 @@ def get_label_path(current_filename):
 
 
 def get_bounderies_for_angle(r_phiArray, phileft_radar, phiright_radar):
-    bound_left = 0 # init for error handling
+    bound_left = 0  # init for error handling
     for k in range(r_phiArray.shape[1]):
         if phileft_radar >= r_phiArray[0][k][1]:
             if k == 0:
@@ -166,8 +167,8 @@ def cartesian2polar(x, y):
 
 def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity):
     r_phiArray = R_PHI_ARRAY_FAR  # create array for range r and angle phi
-    phileft_radar += 0.5*0.01745329
-    phiright_radar -= 0.5*0.01745329
+    phileft_radar += 0.5 * 0.01745329
+    phiright_radar -= 0.5 * 0.01745329
     bound_left, bound_right = get_bounderies_for_angle(r_phiArray, phileft_radar, phiright_radar)
 
     # if bound_right != 0:
@@ -186,8 +187,8 @@ def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity):
 
 def look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity):
     r_phiArray = R_PHI_ARRAY_NEAR  # create array for range r and angle phi
-    phileft_radar += 0.5*3.75*0.01745329
-    phiright_radar -= 0.5*3.75*0.01745329
+    phileft_radar += 0.5 * 3.75 * 0.01745329
+    phiright_radar -= 0.5 * 3.75 * 0.01745329
     bound_left, bound_right = get_bounderies_for_angle(r_phiArray, phileft_radar, phiright_radar)
 
     # if bound_right != 0:
@@ -210,14 +211,14 @@ def get_no_obj(obj_list, radar_data, near=True):
 
     if len(obj_list) > 1:
         for k in range(len(obj_list) - 1):
-            if obj_list[k + 1][0] - obj_list[k][1] >= 0.01745329*angle_res:  # size of far angle resolution
+            if obj_list[k + 1][0] - obj_list[k][1] >= 0.01745329 * angle_res:  # size of far angle resolution
                 no_obj_list.append([obj_list[k][1], obj_list[k + 1][0]])
 
-        if obj_list[0][0] > -0.12217305*angle_res:  # second boundery from the right side -> right side of radar cone
-            no_obj_list.append([-0.13962634*angle_res, obj_list[0][0]])
+        if obj_list[0][0] > -0.12217305 * angle_res:  # second boundery from the right side -> right side of radar cone
+            no_obj_list.append([-0.13962634 * angle_res, obj_list[0][0]])
 
-        if obj_list[len(obj_list) - 1][1] < 0.12217305*angle_res:  # left side of radar cone
-            no_obj_list.append([obj_list[len(obj_list) - 1][1], 0.13962634*angle_res])
+        if obj_list[len(obj_list) - 1][1] < 0.12217305 * angle_res:  # left side of radar cone
+            no_obj_list.append([obj_list[len(obj_list) - 1][1], 0.13962634 * angle_res])
 
         for k in range(len(no_obj_list)):
             if near:
@@ -230,14 +231,14 @@ def get_no_obj(obj_list, radar_data, near=True):
             look_in_near_radar(0.13962634 * angle_res, obj_list[0][1], radar_data, 'no_obj')
             look_in_near_radar(obj_list[0][0], -0.13962634 * angle_res, radar_data, 'no_obj')
         else:
-            look_in_far_radar(0.13962634*angle_res, obj_list[0][1], radar_data, 'no_obj')
-            look_in_far_radar(obj_list[0][0], -0.13962634*angle_res, radar_data, 'no_obj')
+            look_in_far_radar(0.13962634 * angle_res, obj_list[0][1], radar_data, 'no_obj')
+            look_in_far_radar(obj_list[0][0], -0.13962634 * angle_res, radar_data, 'no_obj')
 
     else:
         if near:
-            look_in_near_radar(0.13962634*angle_res, -0.13962634*angle_res, radar_data, 'no_obj')
+            look_in_near_radar(0.13962634 * angle_res, -0.13962634 * angle_res, radar_data, 'no_obj')
         else:
-            look_in_far_radar(0.13962634*angle_res, -0.13962634*angle_res, radar_data, 'no_obj')
+            look_in_far_radar(0.13962634 * angle_res, -0.13962634 * angle_res, radar_data, 'no_obj')
 
 
 def main():
@@ -280,7 +281,7 @@ def main():
                 look_in_near_radar(phileft_radar, phiright_radar, radar_data, identity)
                 obj_list_near.append([phiright_radar, phileft_radar])
 
-        #get obj_lists disjoint -> sort it first, then use disjoint-function
+        # get obj_lists disjoint -> sort it first, then use disjoint-function
         if len(obj_list_far) > 1:
             obj_list_far = merge_overlapping_intervals(obj_list_far)
         if len(obj_list_near) > 1:
@@ -290,6 +291,7 @@ def main():
         get_no_obj(obj_list_near, radar_data)
 
     print(OBJ_CNTS)
+
 
 if __name__ == '__main__':
     main()

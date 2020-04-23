@@ -6,7 +6,7 @@ from transform_code.transformations import Transformer
 from vru_notvru import *
 from draw_2dpointcloud import create_data_array
 
-current_filename= 'radar_-_snow_subsampled:2018-02-12_12-05-18:cam_stereo:left:image_rect:00250_1518433545943946343.json'
+current_filename = 'radar_-_snow_subsampled:2018-02-12_12-05-18:cam_stereo:left:image_rect:00250_1518433545943946343.json'
 radar_path = ''
 counter = 0
 
@@ -77,11 +77,7 @@ def main():
     create_no_objects(no_obj_list_far, radar_data, counter, False)
     create_no_objects(no_obj_list_near, radar_data, counter)
 
-
-
     #################### DRAW FILE #####################
-
-
 
     xy_amp = create_data_array()
 
@@ -91,13 +87,14 @@ def main():
 
     marker_size = 5
 
-    #for point in xyz:
+    # for point in xyz:
     #    c = [point[2], point[3], point[4]]
     #    plt.scatter(point[1] * (-1), point[0], marker_size, c)
 
     # c = (xyz[:, 2], xyz[:, 3], xyz[:, 4])
 
-    plt.scatter(xy_amp[:, 1] * (-1), xy_amp[:, 0], marker_size, c=xy_amp[:, 2])  # *(-1) as one has to swap sign of phileft and phiright
+    plt.scatter(xy_amp[:, 1] * (-1), xy_amp[:, 0], marker_size,
+                c=xy_amp[:, 2])  # *(-1) as one has to swap sign of phileft and phiright
     cbar = plt.colorbar()
     cbar.set_label("Amplitude [16bit number]", labelpad=+1)
     plt.show()
@@ -105,5 +102,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-

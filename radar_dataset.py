@@ -1,19 +1,18 @@
 '''
-    ModelNet dataset. Support ModelNet40, ModelNet10, XYZ and normal channels. Up to 10000 points.
+    Radar dataset to be used for training (data are generated radar subcones from recorded traffic scenarios.
 '''
 
 import os
 import os.path
-import json
 import numpy as np
 import sys
+# import provider
 
 counter = 0
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
-import provider
 
 
 def pc_normalize_far(xyz):
@@ -21,6 +20,7 @@ def pc_normalize_far(xyz):
     xyz[:, 1] /= 29.561882225922126
     xyz[:, 2] /= 200.0
     return xyz
+
 
 def pc_normalize_near(xyz):
     xyz[:, 0] /= 90.0
@@ -32,7 +32,7 @@ def pc_normalize_near(xyz):
 def normalize_features(features):
     for k in range(3):
         features[:, k] /= 65535.0  # equals float(np.power(2, 16)-1)
-        features[:, k+3] /= 200.0
+        features[:, k + 3] /= 200.0
     return features
 
 
@@ -43,21 +43,21 @@ class RadarDataset():
         self.batch_size = batch_size
         self.npoints = npoints  # TODO
         self.normalize = normalize  # TODO
-        self.catfile = '/media/moellya/yannick/data/data_vru_notvru/far_data/shape_names.txt'  # os.path.join(self.root, 'shape_names.txt')
+        self.catfile = '/media/moellya/yannick/data/data_vru_notvru/far_data/shape_names.txt'
         self.cat = [line.rstrip() for line in open(self.catfile)]
         self.classes = dict(zip(self.cat, range(len(self.cat))))
 
         shape_ids = {}
         shape_ids['train'] = [line.rstrip() for line in open(
-            '/media/moellya/yannick/data/data_vru_notvru/far_data/radar_train.txt')]  # os.path.join(self.root, 'radar_traindata.txt'))]
+            '/media/moellya/yannick/data/data_vru_notvru/far_data/radar_train.txt')]
         shape_ids['test'] = [line.rstrip() for line in open(
-            '/media/moellya/yannick/data/data_vru_notvru/far_data/radar_val.txt')]  # os.path.join(self.root, 'radar_testdata.txt'))]
+            '/media/moellya/yannick/data/data_vru_notvru/far_data/radar_val.txt')]
 
         assert (split == 'train' or split == 'test')
         shape_names = ['_'.join(x.split('_')[0:-1]) for x in shape_ids[split]]
         # list of (shape_name, shape_txt_file_path) tuple
-        self.datapath = [(shape_names[i][5:], os.path.join(self.root, shape_names[i][5:], shape_ids[split][i]) + '.txt') for i
-                         in range(len(shape_ids[split]))]  # [5:0] cuts off scenario_nr + hyphen
+        self.datapath = [(shape_names[i][5:], os.path.join(self.root, shape_names[i][5:], shape_ids[split][i]) + '.txt')
+                         for i in range(len(shape_ids[split]))]  # [5:0] cuts off scenario_nr + hyphen
 
         self.cache_size = cache_size  # how many data points to cache in memory
         self.cache = {}  # from index to (point_set, cls) tuple
@@ -105,9 +105,11 @@ class RadarDataset():
             #     print('Already ' + str(counter) + ' objects read and stored into cache.')
 
             point_set = point_set[0:self.npoints, :]
+
             # normalize
             point_set[:, 0:3] = pc_normalize_far(point_set[:, 0:3])
             point_set[:, 3:] = normalize_features(point_set[:, 3:])
+
             if len(self.cache) < self.cache_size:
                 self.cache[index] = (point_set, cls)
         return point_set, cls
@@ -132,7 +134,7 @@ class RadarDataset():
         return self.batch_idx < self.num_batches
 
     def next_batch(self, augment=False):
-        ''' returned dimension may be smaller than self.batch_size '''
+        # returned dimension may be smaller than self.batch_size!
         start_idx = self.batch_idx * self.batch_size
         end_idx = min((self.batch_idx + 1) * self.batch_size, len(self.datapath))
         bsize = end_idx - start_idx
@@ -148,7 +150,7 @@ class RadarDataset():
 
 
 if __name__ == '__main__':
-    d = ModelNetDataset(root='../data/modelnet40_normal_resampled', split='test')
+    d = RadarDataset(root='../data/radar_dataset', split='test')
     print(d.shuffle)
     print(len(d))
     import time

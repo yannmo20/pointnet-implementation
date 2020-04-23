@@ -15,6 +15,7 @@ LABEL_MAPPING = {
     'person_sitting': 'pedestrian',
 }
 
+
 def r_phi_array_unscaled(near=False):
     """
 
@@ -108,23 +109,24 @@ def get_label_cornerpixels(label_object):
 
 
 def create_subarray(array, bound_left, bound_right):
-    return array[:, 3:, bound_left:bound_right + 1] # cut off first three elements due to noise
+    return array[:, 3:, bound_left:bound_right + 1]  # cut off first three elements due to noise
 
 
 def preprocess_output(output):
-    new_output = output # just for overwriting
+    new_output = output  # just for overwriting
     while new_output.shape[0] < 1500:
-        new_output = np.concatenate((new_output, output)) # thrid variable is axis used for concatenation
+        new_output = np.concatenate((new_output, output))  # thrid variable is axis used for concatenation
 
     # downsampling by sorting the first amplitude value, select first 1500
-    new_output = new_output[new_output[:,3].argsort()][::-1]
+    new_output = new_output[new_output[:, 3].argsort()][::-1]
     new_output = new_output[:1500, :]
     return new_output
 
 
 def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, identity, saveinDirectory, scenarionr):
     # note that all arrays have same width and length
-    output = get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out=False) # TODO: wieder auf False
+    output = get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray,
+                                 str_out=False)
     output = preprocess_output(output)
 
     OBJ_CNTS[identity] = 1 + OBJ_CNTS.get(identity, 0)
@@ -139,7 +141,7 @@ def write_file_for_PointNet(r_phiArray_subarray, amp_subarray, dop_subarray, ide
 
     with open(out_path, 'w') as f:
         f.writelines(points)
-        #f.writelines(output)
+        # f.writelines(output)
 
 
 def get_output_for_file(r_phiArray_subarray, amp_subarray, dop_subarray, str_out=True):
@@ -211,7 +213,7 @@ def cartesian2polar(x, y):
 
 
 def polar2cartesian(r, phi):
-    return r*np.cos(phi), r*np.sin(phi)
+    return r * np.cos(phi), r * np.sin(phi)
 
 
 def look_in_far_radar(phileft_radar, phiright_radar, radar_data, identity, counter):

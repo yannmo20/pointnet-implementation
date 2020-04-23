@@ -1,10 +1,12 @@
 import json
 import os
 
+
 def main():
     path = '/media/moellya/yannick/labels'
     files = os.listdir(path)
     classes = set()
+
     for cnt, file in enumerate(files, 1):
         with open(os.path.join(path, file), 'r') as f:
             objects = json.load(f)['children'][0]['children'][0]['children']

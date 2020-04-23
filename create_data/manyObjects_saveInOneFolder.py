@@ -240,7 +240,6 @@ def main():
     with open(label_path, 'r') as f:
         label_data = json.load(f)['children'][0]['children'][0]['children']
 
-
     for label_object in label_data:
         print(label_object)
         xmin, xmax, y, identity = get_label_cornerpixels(label_object)
@@ -255,15 +254,16 @@ def main():
         r = int(np.ceil(r))
 
         # far radar system
-        if (phiright_radar <= 0.13962634014954636 and phiright_radar >= -0.13962634014954636) or (phileft_radar <= 0.13962634014954636 and phileft_radar >= -0.13962634014954636):
+        if (phiright_radar <= 0.13962634014954636 and phiright_radar >= -0.13962634014954636) or (
+                phileft_radar <= 0.13962634014954636 and phileft_radar >= -0.13962634014954636):
             near = False
             look_in_far_radar(near, phileft_radar, phiright_radar, radar_data, identity)
 
         # else: use near radar system -> no doubling for same object in both radar systems
-        elif (phiright_radar <= 0.5235987755982988 and phiright_radar >= -0.5235987755982988) or (phileft_radar <= 0.5235987755982988 and phileft_radar >= -0.5235987755982988):
+        elif (phiright_radar <= 0.5235987755982988 and phiright_radar >= -0.5235987755982988) or (
+                phileft_radar <= 0.5235987755982988 and phileft_radar >= -0.5235987755982988):
             near = True
             look_in_near_radar(near, phileft_radar, phiright_radar, radar_data, identity)
-
 
 
 if __name__ == '__main__':
